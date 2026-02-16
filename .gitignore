@@ -1,4 +1,6 @@
-# Logs
+# ---------------------------------
+# 1. Logs y Archivos del Sistema
+# ---------------------------------
 logs
 *.log
 npm-debug.log*
@@ -7,20 +9,61 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Archivos del Sistema Operativo
+.DS_Store
+Thumbs.db
+*.sw?
+
+# ---------------------------------
+# 2. Dependencias y Build (No subir)
+# ---------------------------------
 node_modules
 dist
 dist-ssr
 *.local
+venv
 
-# Editor directories and files
+# ---------------------------------
+# 3. VARIABLES DE ENTORNO (¡CRÍTICO!)
+# ---------------------------------
+# Ignorar todos los archivos .env excepto el de ejemplo
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# Pero permitimos subir el ejemplo para que otros sepan qué variables crear
+!.env.example
+
+# ---------------------------------
+# 4. Supabase & Backend
+# ---------------------------------
+# Ignorar archivos temporales generados por Supabase CLI
+supabase/.temp
+supabase/.branches
+
+# No subir configuraciones locales de Docker o secretos
+docker-compose.override.yml
+.supabase.co
+
+# ---------------------------------
+# 5. Editor / IDE
+# ---------------------------------
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
-.env.local
-venv
+
+# ---------------------------------
+# 6. Seguridad Extra (Google & Keys)
+# ---------------------------------
+# Ignorar cualquier archivo JSON que parezca una credencial
+*service-account*.json
+*credential*.json
+key.json
+*.pem
