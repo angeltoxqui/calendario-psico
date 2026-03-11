@@ -1,46 +1,43 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
 import { Save, Plus, Trash2, Clock, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getWorkShifts, saveWorkShifts } from '../../services/mockService';
+import { uuid } from '../../data/mockData';
+import type { WorkShift } from '../../types';
 
 const DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
 export default function Settings() {
-  const [shifts, setShifts] = useState([]);
+  const [shifts, setShifts] = useState<WorkShift[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => { fetchShifts(); }, []);
 
   const fetchShifts = async () => {
-    const { data } = await supabase.from('work_shifts').select('*').order('start_time', { ascending: true });
-    setShifts(data || []);
+    const data = await getWorkShifts();
+    setShifts(data);
     setLoading(false);
   };
 
-  const addShift = (dayIdx) => {
-    const newShift = { day_of_week: dayIdx, start_time: "08:00:00", end_time: "12:00:00" };
+  const addShift = (dayIdx: number) => {
+    const newShift: WorkShift = { id: uuid(), day_of_week: dayIdx, start_time: "08:00:00", end_time: "12:00:00" };
     setShifts([...shifts, newShift]);
   };
 
-  const removeShift = async (shift) => {
-    if (shift.id) {
-      await supabase.from('work_shifts').delete().eq('id', shift.id);
-    }
+  const removeShift = (shift: WorkShift) => {
     setShifts(shifts.filter(s => s !== shift));
   };
 
-  const updateShift = (index, field, value) => {
+  const updateShift = (index: number, field: 'start_time' | 'end_time', value: string) => {
     const newShifts = [...shifts];
-    newShifts[index][field] = value;
+    newShifts[index] = { ...newShifts[index], [field]: value };
     setShifts(newShifts);
   };
 
   const saveAll = async () => {
-    const { error } = await supabase.from('work_shifts').upsert(shifts);
-    if (!error) {
-        alert("✅ Horarios y bloques de descanso actualizados");
-        fetchShifts();
-    }
+    await saveWorkShifts(shifts);
+    alert("✅ Horarios y bloques de descanso actualizados");
+    fetchShifts();
   };
 
   if (loading) return <div className="p-10 text-center">Cargando cronograma...</div>;
@@ -83,13 +80,13 @@ export default function Settings() {
                         <Clock size={14} className="text-slate-400 ml-2"/>
                         <input 
                           type="time" value={shift.start_time.slice(0,5)}
-                          onChange={(e) => updateShift(shifts.indexOf(shift), 'start_time', e.target.value)}
+                          onChange={(e) => updateShift(shifts.indexOf(shift), 'start_time', e.target.value + ':00')}
                           className="bg-transparent border-0 text-sm font-bold focus:ring-0 p-1"
                         />
                         <span className="text-slate-300">-</span>
                         <input 
                           type="time" value={shift.end_time.slice(0,5)}
-                          onChange={(e) => updateShift(shifts.indexOf(shift), 'end_time', e.target.value)}
+                          onChange={(e) => updateShift(shifts.indexOf(shift), 'end_time', e.target.value + ':00')}
                           className="bg-transparent border-0 text-sm font-bold focus:ring-0 p-1"
                         />
                         <button onClick={() => removeShift(shift)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-xl transition-colors">

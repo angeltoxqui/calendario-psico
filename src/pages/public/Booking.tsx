@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-import { useScheduler } from '../../hooks/useScheduler'; // Importamos el Hook
+import { useScheduler } from '../../hooks/useScheduler';
+import { getServices, createAppointment } from '../../services/mockService';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Calendar, User, CheckCircle } from 'lucide-react';
+import { ChevronLeft, User } from 'lucide-react';
+import type { Service, TimeSlot } from '../../types';
 
 export default function Booking() {
   const { getAvailableSlots, registerPatient } = useScheduler();
   const [loading, setLoading] = useState(false);
-  const [services, setServices] = useState([]);
+  const [services, setServices] = useState<Service[]>([]);
   
   // Estados para el flujo
-  const [selectedService, setSelectedService] = useState(null);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState('');
-  const [availableSlots, setAvailableSlots] = useState([]); // Array de horas {time: '08:00', available: true}
-  const [selectedTime, setSelectedTime] = useState(null);
+  const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
 
   // Formulario datos
   const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
@@ -21,8 +22,8 @@ export default function Booking() {
   // 1. Cargar Servicios
   useEffect(() => {
     const fetchServices = async () => {
-      const { data } = await supabase.from('services').select('*').eq('is_active', true);
-      if (data) setServices(data);
+      const data = await getServices(true);
+      setServices(data);
     };
     fetchServices();
   }, []);
@@ -35,34 +36,32 @@ export default function Booking() {
   }, [selectedDate, selectedService]);
 
   const loadSlots = async () => {
-    // Limpiamos selección previa
     setSelectedTime(null);
     const slots = await getAvailableSlots(selectedDate);
     setAvailableSlots(slots);
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedService || !selectedTime) return;
     setLoading(true);
 
     try {
       // 1. Registrar/Buscar Paciente
       const { data: patientId, error: pError } = await registerPatient(formData);
       if (pError) throw pError;
+      if (!patientId) throw new Error('No se pudo registrar al paciente');
 
       // 2. Crear Cita
       const startTime = new Date(`${selectedDate}T${selectedTime}`);
       const endTime = new Date(startTime.getTime() + (selectedService.duration_min * 60000));
 
-      const { error: appError } = await supabase.from('appointments').insert({
+      await createAppointment({
         patient_id: patientId,
         service_id: selectedService.id,
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
-        status: 'pending'
       });
-
-      if (appError) throw appError;
 
       alert('✅ ¡Cita solicitada con éxito! Espera la confirmación.');
       // Reiniciar
@@ -70,7 +69,7 @@ export default function Booking() {
       setSelectedTime(null);
       
     } catch (error) {
-      alert('Error: ' + error.message);
+      alert('Error: ' + (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -116,7 +115,7 @@ export default function Booking() {
                   <input 
                     type="date" 
                     required
-                    min={new Date().toISOString().split('T')[0]} // No permitir pasado
+                    min={new Date().toISOString().split('T')[0]}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     onChange={(e) => setSelectedDate(e.target.value)}
                   />
@@ -137,10 +136,10 @@ export default function Booking() {
                           onClick={() => setSelectedTime(slot.time)}
                           className={`py-2 px-1 rounded text-sm font-medium transition-all ${
                             !slot.available 
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through' // Ocupado
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed line-through'
                               : selectedTime === slot.time
-                                ? 'bg-indigo-600 text-white shadow-md transform scale-105' // Seleccionado
-                                : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-400' // Disponible
+                                ? 'bg-indigo-600 text-white shadow-md transform scale-105'
+                                : 'bg-white border border-gray-200 text-gray-600 hover:border-indigo-400'
                           }`}
                         >
                           {slot.time}

@@ -1,33 +1,50 @@
 import { useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
 import { ShieldAlert, UserX, UserCheck, Key, Lock } from 'lucide-react';
+import type { AdminMessage } from '../../types';
 
 export default function SuperAdmin() {
   const [email, setEmail] = useState('');
-  const [adminSecret, setAdminSecret] = useState(''); // Tu clave maestra
+  const [adminSecret, setAdminSecret] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState(null);
+  const [msg, setMsg] = useState<AdminMessage | null>(null);
 
-  const executeAction = async (action) => {
+  const executeAction = async (action: string) => {
     setLoading(true);
     setMsg(null);
+    
+    // Simular delay de red
+    await new Promise(resolve => setTimeout(resolve, 500));
+
     try {
-      const { data, error } = await supabase.functions.invoke('admin-actions', {
-        body: { 
-          action, 
-          email, 
-          newPassword: action === 'reset_password' ? newPassword : null,
-          adminSecret 
-        }
-      });
+      // Mock: validar clave maestra
+      if (adminSecret !== 'supersecret') {
+        throw new Error('Clave maestra incorrecta. Usa "supersecret" para el demo.');
+      }
 
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
+      if (!email) {
+        throw new Error('Debes ingresar un email.');
+      }
 
-      setMsg({ type: 'success', text: data.message });
+      let message = '';
+      switch (action) {
+        case 'ban':
+          message = `✅ Usuario ${email} desactivado exitosamente (Mock).`;
+          break;
+        case 'unban':
+          message = `✅ Usuario ${email} reactivado exitosamente (Mock).`;
+          break;
+        case 'reset_password':
+          if (!newPassword) throw new Error('Debes ingresar una nueva contraseña.');
+          message = `✅ Contraseña de ${email} actualizada exitosamente (Mock).`;
+          break;
+        default:
+          throw new Error('Acción no reconocida');
+      }
+
+      setMsg({ type: 'success', text: message });
     } catch (err) {
-      setMsg({ type: 'error', text: err.message });
+      setMsg({ type: 'error', text: (err as Error).message });
     } finally {
       setLoading(false);
     }
@@ -41,6 +58,7 @@ export default function SuperAdmin() {
           <ShieldAlert size={48} className="mx-auto text-red-500 mb-2"/>
           <h1 className="text-2xl font-bold text-white">Zona Super Admin</h1>
           <p className="text-slate-400 text-sm">Control de Suscripción y Accesos</p>
+          <p className="text-xs text-slate-500 mt-1">Demo: Clave maestra = "supersecret"</p>
         </div>
 
         {/* Formulario de Seguridad */}
@@ -76,7 +94,7 @@ export default function SuperAdmin() {
           <button 
             onClick={() => executeAction('ban')}
             disabled={loading || !email}
-            className="flex flex-col items-center justify-center p-4 bg-red-900/30 border border-red-800 rounded-xl hover:bg-red-900/50 transition-colors group"
+            className="flex flex-col items-center justify-center p-4 bg-red-900/30 border border-red-800 rounded-xl hover:bg-red-900/50 transition-colors group disabled:opacity-50"
           >
             <UserX className="mb-2 text-red-400 group-hover:text-red-300"/>
             <span className="text-sm font-bold text-red-400">Desactivar (Impago)</span>
@@ -85,7 +103,7 @@ export default function SuperAdmin() {
           <button 
             onClick={() => executeAction('unban')}
             disabled={loading || !email}
-            className="flex flex-col items-center justify-center p-4 bg-emerald-900/30 border border-emerald-800 rounded-xl hover:bg-emerald-900/50 transition-colors group"
+            className="flex flex-col items-center justify-center p-4 bg-emerald-900/30 border border-emerald-800 rounded-xl hover:bg-emerald-900/50 transition-colors group disabled:opacity-50"
           >
             <UserCheck className="mb-2 text-emerald-400 group-hover:text-emerald-300"/>
             <span className="text-sm font-bold text-emerald-400">Reactivar Cuenta</span>
@@ -106,7 +124,7 @@ export default function SuperAdmin() {
             <button 
               onClick={() => executeAction('reset_password')}
               disabled={loading || !newPassword}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg flex items-center"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 rounded-lg flex items-center disabled:opacity-50"
             >
               <Key size={18}/>
             </button>

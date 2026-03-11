@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
 import {
   TrendingUp,
   Users,
@@ -10,9 +9,11 @@ import {
   BarChart3
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getStats } from '../../services/mockService';
+import type { StatsData } from '../../types';
 
 export default function StatsDashboard() {
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<StatsData>({
     totalCitas: 0,
     ingresosTotales: 0,
     pacientesUnicos: 0,
@@ -27,47 +28,8 @@ export default function StatsDashboard() {
 
   const fetchStats = async () => {
     try {
-      // 1. Obtener todas las citas confirmadas con sus servicios vinculados
-      const { data: apps, error } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          services (name, price)
-        `)
-        .eq('status', 'confirmed');
-
-      if (error) throw error;
-
-      // 2. Procesamiento de KPIs
-      const total = apps.length;
-      const ingresos = apps.reduce((acc, curr) => acc + (curr.services?.price || 0), 0);
-      const pacientes = new Set(apps.map(a => a.patient_id)).size;
-
-      // 3. Procesar servicios más requeridos
-      const svcMap = {};
-      apps.forEach(a => {
-        const name = a.services?.name || 'Otro';
-        svcMap[name] = (svcMap[name] || 0) + 1;
-      });
-      const topServices = Object.entries(svcMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5); // Tomamos los 5 mejores
-
-      // 4. Procesar días de la semana (0=Dom, 1=Lun...)
-      const daysMap = [0, 0, 0, 0, 0, 0, 0];
-      apps.forEach(a => {
-        const day = new Date(a.start_time).getDay();
-        daysMap[day]++;
-      });
-
-      setStats({
-        totalCitas: total,
-        ingresosTotales: ingresos,
-        pacientesUnicos: pacientes,
-        serviciosPopulares: topServices,
-        diasPico: daysMap
-      });
-
+      const data = await getStats();
+      setStats(data);
     } catch (err) {
       console.error("Error cargando estadísticas:", err);
     } finally {
@@ -164,7 +126,14 @@ export default function StatsDashboard() {
   );
 }
 
-function StatCard({ title, value, icon, color }) {
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: string;
+}
+
+function StatCard({ title, value, icon, color }: StatCardProps) {
   return (
     <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-5 hover:shadow-md transition-shadow">
       <div className={`${color} p-4 rounded-2xl text-white shadow-lg shadow-current/20`}>

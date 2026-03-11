@@ -1,45 +1,12 @@
-
-# Dependencias locales 
-node_modules/
-venv/
-
-# Archivos de build generados localmente
-dist/
-dist-ssr/
-
-# Variables de entorno sensibles
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-*.env
-
-# Git
-.git/
+node_modules
+dist
+.git
 .gitignore
-
-# Logs
+.vscode
+.idea
+*.md
 *.log
-logs/
-
-# Editor / IDE
-.vscode/
-.idea/
-
-# Archivos del sistema operativo
-.DS_Store
-Thumbs.db
-
-# Supabase archivos temporales
-supabase/.temp
-supabase/.branches
-
-# Credenciales / Claves
-*service-account*.json
-*credential*.json
-key.json
-*.pem
-
-# README 
-README.md
+.env*
+!.env.example
+Dockerfile
+.dockerignore

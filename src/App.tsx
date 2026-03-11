@@ -7,7 +7,7 @@ import PatientDetails from './pages/admin/PatientDetails';
 import ServicesPanel from './pages/admin/ServicesPanel';
 import Settings from './pages/admin/Settings';
 import StatsDashboard from './pages/admin/StatsDashboard';
-import SuperAdmin from './pages/sysadmin/SuperAdmin'; // <--- 1. IMPORTANTE: Importar el archivo
+import SuperAdmin from './pages/sysadmin/SuperAdmin';
 
 function App() {
   return (
@@ -25,7 +25,7 @@ function App() {
       <Route path="/admin/estadisticas" element={<StatsDashboard />} />
 
       {/* Ruta Secreta de Super Admin */}
-      <Route path="/sysadmin" element={<SuperAdmin />} /> {/* <--- 2. IMPORTANTE: La Puerta Secreta */}
+      <Route path="/sysadmin" element={<SuperAdmin />} />
 
       {/* Ruta 404 */}
       <Route path="*" element={<h1 className="text-center mt-10">404 - Página no encontrada</h1>} />

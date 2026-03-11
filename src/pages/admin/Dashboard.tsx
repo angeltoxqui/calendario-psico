@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LogOut, CheckCircle, XCircle, Clock, Calendar, LayoutDashboard } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { getAppointments, updateAppointmentStatus } from '../../services/mockService';
+import { logout } from '../../services/authService';
+import type { Appointment } from '../../types';
 
 export default function Dashboard() {
-  const [appointments, setAppointments] = useState([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -16,92 +17,41 @@ export default function Dashboard() {
 
   const fetchAppointments = async () => {
     setLoading(true);
-    // Traemos la cita Y los datos del paciente y servicio relacionados
-    const { data, error } = await supabase
-      .from('appointments')
-      .select(`
-        *,
-        patients ( full_name, phone, email ),
-        services ( name, price )
-      `)
-      .order('created_at', { ascending: false }); // Las más nuevas primero
-
-    if (error) {
-      console.error('Error cargando citas:', error);
-      // Si el error es por no estar logueado, redirigir
-      // (En producción manejaríamos esto mejor con un Context de Auth)
-    } else {
-      setAppointments(data || []);
-    }
+    const data = await getAppointments();
+    setAppointments(data);
     setLoading(false);
   };
 
   // 2. Función para aceptar/rechazar
-  const handleStatusChange = async (id, newStatus) => {
-    // 1. Encontramos la cita completa en el estado actual para tener los datos del paciente
-    const appointmentData = appointments.find(app => app.id === id);
-
-    if (!appointmentData) return;
-
-    // Indicador visual de carga (opcional, podrías poner un toast loading aquí)
+  const handleStatusChange = async (id: string, newStatus: 'confirmed' | 'rejected') => {
     const isConfirming = newStatus === 'confirmed';
     if (isConfirming && !confirm("¿Confirmar cita y sincronizar con Google Calendar?")) return;
 
     try {
-      // 2. Actualizar estado en Supabase (Base de Datos)
-      const { error: dbError } = await supabase
-        .from('appointments')
-        .update({ status: newStatus })
-        .eq('id', id);
+      await updateAppointmentStatus(id, newStatus);
 
-      if (dbError) throw new Error('Error actualizando la base de datos');
-
-      // 3. SI ES CONFIRMADA -> INVOCAR EDGE FUNCTION (Google Calendar)
       if (isConfirming) {
-        // toast.loading('Sincronizando con Google...') // Si usaras una librería de notificaciones
-
-        const { data: funcData, error: funcError } = await supabase.functions.invoke('google-calendar', {
-          body: {
-            action: 'create',
-            appointment: appointmentData
-          }
-        });
-
-        if (funcError) {
-          console.error("Error Function:", funcError);
-          alert("⚠️ La cita se guardó en el sistema, pero FALLÓ la sincronización con Google Calendar. Revisa los logs.");
-        } else {
-          // Opcional: Guardar el ID de Google en la base de datos para referencia futura
-          if (funcData?.googleEventId) {
-            await supabase
-              .from('appointments')
-              .update({ google_event_id: funcData.googleEventId })
-              .eq('id', id);
-          }
-          alert("✅ Cita confirmada y agendada en Google Calendar.");
-        }
+        alert("✅ Cita confirmada y agendada en Google Calendar (Mock).");
       } else {
-        alert(`Cita marcada como: ${newStatus === 'confirmed' ? 'Confirmada' : 'Rechazada'}`);
+        alert(`Cita marcada como: Rechazada`);
       }
 
-      // 4. Recargar la lista
       fetchAppointments();
-
     } catch (err) {
       console.error(err);
-      alert('Error: ' + err.message);
+      alert('Error: ' + (err as Error).message);
     }
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await logout();
     navigate('/login');
   };
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
 
-      {/* SIDEBAR: Lo hacemos fijo y controlamos su altura */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-slate-900 text-white flex flex-col h-screen sticky top-0">
 
         {/* Cabecera del Sidebar */}
@@ -113,9 +63,8 @@ export default function Dashboard() {
           <p className="text-slate-400 text-sm mt-1">Panel de Control</p>
         </div>
 
-        {/* Navegación (Empuja el contenido hacia abajo) */}
+        {/* Navegación */}
         <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-          {/* ... Tus botones de navegación actuales ... */}
           <button onClick={fetchAppointments} className="w-full text-left px-4 py-3 rounded-xl hover:bg-slate-800 transition flex items-center gap-3 text-slate-300 hover:text-white">
             📅 Gestión de Citas
           </button>
@@ -137,7 +86,7 @@ export default function Dashboard() {
           </Link>
         </nav>
 
-        {/* Footer del Sidebar (Botón Cerrar Sesión SIEMPRE ABAJO) */}
+        {/* Footer del Sidebar */}
         <div className="p-4 border-t border-slate-800">
           <button
             onClick={handleLogout}
@@ -148,7 +97,7 @@ export default function Dashboard() {
         </div>
       </aside>
 
-      {/* CONTENIDO PRINCIPAL: Este es el que hace scroll */}
+      {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 p-8 overflow-y-auto h-screen">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Solicitudes de Citas</h1>
 
@@ -181,7 +130,6 @@ export default function Dashboard() {
                       {app.patients?.full_name}
                     </Link>
                   </h3>
-
 
                   <p className="text-indigo-600 font-medium">{app.services?.name}</p>
 

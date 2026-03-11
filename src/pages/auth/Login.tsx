@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
-import { useNavigate, Link } from 'react-router-dom'; // Importamos Link
-import { Lock, Mail, ChevronLeft, Loader2 } from 'lucide-react'; // Importamos ChevronLeft
+import { useNavigate, Link } from 'react-router-dom';
+import { Lock, Mail, ChevronLeft, Loader2 } from 'lucide-react';
+import { login } from '../../services/authService';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,19 +9,15 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { error } = await login(email, password);
       if (error) throw error;
       navigate('/admin');
     } catch (error) {
-      alert(error.message);
+      alert((error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -30,8 +26,7 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 relative">
 
-      {/* --- NUEVO: Botón Flotante para Regresar --- */}
-      {/* Lo ponemos fuera de la tarjeta para que se sienta como "volver atrás en la página" */}
+      {/* Botón Flotante para Regresar */}
       <Link
         to="/"
         className="absolute top-6 left-6 text-slate-500 hover:text-indigo-600 flex items-center gap-2 font-medium transition-colors bg-white px-4 py-2 rounded-full shadow-sm hover:shadow-md border border-slate-200"
@@ -48,6 +43,7 @@ export default function Login() {
           </div>
           <h2 className="text-2xl font-bold text-slate-800">Acceso Profesional</h2>
           <p className="text-slate-500 mt-2">Ingresa tus credenciales para gestionar el consultorio.</p>
+          <p className="text-xs text-indigo-400 mt-1">Demo: admin@rootwave.com / admin123</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">

@@ -1,41 +1,33 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabaseClient';
 import { ChevronLeft, User, Phone, Mail, Save, Calendar, Clock, Activity, FileText } from 'lucide-react';
+import { getPatient, getPatientAppointments, saveClinicalNote } from '../../services/mockService';
+import type { Patient, Appointment } from '../../types';
 
 export default function PatientDetails() {
-  const { id } = useParams();
-  const [patient, setPatient] = useState(null);
-  const [appointments, setAppointments] = useState([]);
+  const { id } = useParams<{ id: string }>();
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notesBuffer, setNotesBuffer] = useState({});
+  const [notesBuffer, setNotesBuffer] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    fetchClinicalData();
+    if (id) fetchClinicalData();
   }, [id]);
 
   const fetchClinicalData = async () => {
+    if (!id) return;
     try {
       // 1. Paciente
-      const { data: pData } = await supabase.from('patients').select('*').eq('id', id).single();
+      const pData = await getPatient(id);
       setPatient(pData);
 
       // 2. Historial (Citas + Notas + Servicios)
-      const { data: hData, error } = await supabase
-        .from('appointments')
-        .select(`
-          *,
-          services (name),
-          clinical_notes (content, updated_at) 
-        `)
-        .eq('patient_id', id)
-        .order('start_time', { ascending: false }); // Del más reciente al más antiguo
-
-      if (error) throw error;
+      const hData = await getPatientAppointments(id);
       setAppointments(hData);
 
       // Cargar notas en el buffer
-      const initialNotes = {};
+      const initialNotes: Record<string, string> = {};
       hData.forEach(app => {
         if (app.clinical_notes && app.clinical_notes.length > 0) {
           initialNotes[app.id] = app.clinical_notes[0].content;
@@ -50,27 +42,15 @@ export default function PatientDetails() {
     }
   };
 
-  const handleSaveNote = async (appointmentId) => {
+  const handleSaveNote = async (appointmentId: string) => {
     const content = notesBuffer[appointmentId];
     if (!content) return;
 
     try {
-      // Verificar si ya existe nota
-      const { data: existing } = await supabase
-        .from('clinical_notes')
-        .select('id')
-        .eq('appointment_id', appointmentId)
-        .maybeSingle();
-
-      if (existing) {
-        await supabase.from('clinical_notes').update({ content }).eq('id', existing.id);
-      } else {
-        await supabase.from('clinical_notes').insert({ appointment_id: appointmentId, content });
-      }
-      
+      await saveClinicalNote(appointmentId, content);
       alert('✅ Nota guardada en el historial.');
-      fetchClinicalData(); // Recargar para actualizar fechas de edición
-    } catch (err) {
+      fetchClinicalData();
+    } catch {
       alert('Error guardando nota');
     }
   };

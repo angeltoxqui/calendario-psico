@@ -1,18 +1,24 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Plus, DollarSign, Clock, Edit2, Trash2, Power, X } from 'lucide-react';
+import { ChevronLeft, Plus, DollarSign, Clock, Edit2, Trash2, Power } from 'lucide-react';
+import { getServices, createService, updateService, deleteService, toggleServiceActive } from '../../services/mockService';
+import type { Service } from '../../types';
+
+interface ServiceFormData {
+  name: string;
+  description: string;
+  price: string;
+  duration_min: number;
+}
 
 export default function ServicesPanel() {
-  const [services, setServices] = useState([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // Estado para saber si estamos editando uno existente o creando uno nuevo
-  const [editingId, setEditingId] = useState(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  // Formulario único (se usa para crear y para editar)
-  const initialFormState = { name: '', description: '', price: '', duration_min: 60 };
-  const [formData, setFormData] = useState(initialFormState);
+  const initialFormState: ServiceFormData = { name: '', description: '', price: '', duration_min: 60 };
+  const [formData, setFormData] = useState<ServiceFormData>(initialFormState);
 
   useEffect(() => {
     fetchServices();
@@ -20,61 +26,52 @@ export default function ServicesPanel() {
 
   const fetchServices = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('services')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (!error) setServices(data || []);
+    const data = await getServices();
+    setServices(data);
     setLoading(false);
   };
 
-  // Manejar inputs del formulario
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // Enviar formulario (Crear o Actualizar)
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
       if (editingId) {
-        // ACTUALIZAR
-        const { error } = await supabase
-          .from('services')
-          .update(formData)
-          .eq('id', editingId);
-        if (error) throw error;
+        await updateService(editingId, {
+          name: formData.name,
+          description: formData.description,
+          price: Number(formData.price),
+          duration_min: Number(formData.duration_min),
+        });
       } else {
-        // CREAR NUEVO
-        const { error } = await supabase
-          .from('services')
-          .insert([formData]);
-        if (error) throw error;
+        await createService({
+          name: formData.name,
+          description: formData.description,
+          price: Number(formData.price),
+          duration_min: Number(formData.duration_min),
+        });
       }
 
-      // Resetear todo
       setFormData(initialFormState);
       setEditingId(null);
       fetchServices();
       alert(editingId ? 'Servicio actualizado' : 'Servicio creado');
-
     } catch (error) {
-      alert('Error: ' + error.message);
+      alert('Error: ' + (error as Error).message);
     }
   };
 
-  // Cargar datos en el formulario para editar
-  const startEdit = (service) => {
+  const startEdit = (service: Service) => {
     setEditingId(service.id);
     setFormData({
       name: service.name,
       description: service.description || '',
-      price: service.price,
-      duration_min: service.duration_min
+      price: String(service.price),
+      duration_min: service.duration_min,
     });
-    // Scroll suave hacia arriba
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -83,18 +80,16 @@ export default function ServicesPanel() {
     setFormData(initialFormState);
   };
 
-  // Activar / Desactivar (Soft Delete)
-  const toggleActive = async (id, currentStatus) => {
-    await supabase.from('services').update({ is_active: !currentStatus }).eq('id', id);
+  const handleToggleActive = async (id: string, currentStatus: boolean) => {
+    await toggleServiceActive(id, currentStatus);
     fetchServices();
   };
 
-  // Eliminar (Solo si no tiene citas, si no dará error por llave foránea)
-  const handleDelete = async (id) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('¿Seguro que quieres borrarlo permanentemente? Si tiene citas asociadas fallará (mejor desactívalo).')) return;
     
-    const { error } = await supabase.from('services').delete().eq('id', id);
-    if (error) alert('No se puede borrar porque ya tiene citas registradas. Mejor usa el botón de "Desactivar".');
+    const { error } = await deleteService(id);
+    if (error) alert(error);
     else fetchServices();
   };
 
@@ -156,7 +151,7 @@ export default function ServicesPanel() {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700">Descripción (Opcional)</label>
               <textarea 
-                name="description" rows="2"
+                name="description" rows={2}
                 value={formData.description} onChange={handleChange}
                 className="w-full p-2 border border-gray-300 rounded-lg mt-1"
               />
@@ -193,7 +188,7 @@ export default function ServicesPanel() {
                   <button onClick={() => startEdit(svc)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full" title="Editar">
                     <Edit2 size={18}/>
                   </button>
-                  <button onClick={() => toggleActive(svc.id, svc.is_active)} className={`p-2 rounded-full ${svc.is_active ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-200'}`} title={svc.is_active ? "Desactivar" : "Activar"}>
+                  <button onClick={() => handleToggleActive(svc.id, svc.is_active)} className={`p-2 rounded-full ${svc.is_active ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-200'}`} title={svc.is_active ? "Desactivar" : "Activar"}>
                     <Power size={18}/>
                   </button>
                   <button onClick={() => handleDelete(svc.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-full" title="Borrar permanentemente">

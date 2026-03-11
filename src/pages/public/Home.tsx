@@ -1,16 +1,14 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/supabaseClient';
 import { LayoutDashboard } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getSession } from '../../services/authService';
+import type { AuthSession } from '../../types';
 
 export default function Home() {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
 
   useEffect(() => {
-    // Verificamos si hay alguien logueado (la doctora)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    setSession(getSession());
   }, []);
 
   return (
@@ -35,7 +33,7 @@ export default function Home() {
         </Link>
       </div>
 
-      {/* --- NUEVO: Botón Flotante para Admin --- */}
+      {/* --- Botón Flotante para Admin --- */}
       {session && (
         <Link
           to="/admin"
